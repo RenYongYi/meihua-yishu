@@ -1,6 +1,6 @@
 import type { DivinationResult, Relation } from './meihua'
 import { YAO_NAMES } from './meihua'
-import { HEX_DETAIL, CATEGORIES, OVERALL, WARNINGS } from './guatext'
+import { HEX_DETAIL, HEX_ADVICE, CATEGORIES, OVERALL, WARNINGS } from './guatext'
 
 export interface Block {
   title: string
@@ -8,21 +8,57 @@ export interface Block {
   bullets?: string[]
 }
 
+export type Intent = 'choice' | 'yesno' | 'open'
+
 export interface Narrative {
+  intent: Intent
   verdictChar: string
   verdictTitle: string
   blocks: Block[]
   consequenceDo: string
   consequenceDont: string
+  outcomeLine?: string         // 是非类问题的"成与不成"
   tip: string
 }
 
-const VERDICT: Record<Relation, { char: string; tone: string; title: string }> = {
-  '用生体': { char: '宜', tone: '#4a7c59', title: '放心去做——这卦是事情来成就你的格局。' },
-  '比和': { char: '顺', tone: '#4a7c59', title: '可以做——你和这件事气场相合，多半水到渠成。' },
-  '体克用': { char: '为', tone: '#b08d57', title: '做得，但要亲力亲为——能成，只是省不了力气。' },
-  '体生用': { char: '慎', tone: '#b08d57', title: '不太划算——做成了也可能是你吃亏，三思而后行。' },
-  '用克体': { char: '止', tone: '#a8352c', title: '先别做——眼下阻力正冲着你来，缓一缓是上策。' },
+/** 识别问法：抉择类（要不要做）/ 是非类（会不会成）/ 状况类（为什么、怎么样） */
+export function detectIntent(text: string): Intent {
+  if (/要不要|该不该|适不适合|值得不|去不去|买不买|做不做|辞不|换不|借不|选哪|继续不|还是/.test(text)) return 'choice'
+  if (/会不会|能不能|是不是|是否|能否|会[^。]*[吗么？?]|顺不顺利|成不成|来不来|回不回来/.test(text)) return 'yesno'
+  return 'open'
+}
+
+const VERDICT: Record<Intent, Record<Relation, { char: string; tone: string; title: string }>> = {
+  choice: {
+    '用生体': { char: '宜', tone: '#4a7c59', title: '放心去做——这卦是事情来成就你的格局。' },
+    '比和': { char: '顺', tone: '#4a7c59', title: '可以做——你和这件事气场相合，多半水到渠成。' },
+    '体克用': { char: '为', tone: '#b08d57', title: '做得，但要亲力亲为——能成，只是省不了力气。' },
+    '体生用': { char: '慎', tone: '#b08d57', title: '不太划算——做成了也可能是你吃亏，三思而后行。' },
+    '用克体': { char: '止', tone: '#a8352c', title: '先别做——眼下阻力正冲着你来，缓一缓是上策。' },
+  },
+  yesno: {
+    '用生体': { char: '会', tone: '#4a7c59', title: '多半会——这卦有外力成全，事情会朝你期望的方向走。' },
+    '比和': { char: '会', tone: '#4a7c59', title: '大概率会——局势平顺，事情多半如你所想。' },
+    '体克用': { char: '能', tone: '#b08d57', title: '能成，但要你主动——你推它才动，坐等则难。' },
+    '体生用': { char: '难', tone: '#b08d57', title: '难如你意——这事耗你的多、回应你的少。' },
+    '用克体': { char: '悬', tone: '#a8352c', title: '眼下恐怕难成——阻力正压在你这边，别抱侥幸。' },
+  },
+  open: {
+    '用生体': { char: '吉', tone: '#4a7c59', title: '局面在向好——事情正往你身边靠，答案多半是好消息。' },
+    '比和': { char: '安', tone: '#4a7c59', title: '局面平顺——事情本身没有大碍，正按它的节奏走。' },
+    '体克用': { char: '动', tone: '#b08d57', title: '答案在你手里——这事的走向，由你的行动决定。' },
+    '体生用': { char: '耗', tone: '#b08d57', title: '这事在耗你——付出多的是你，回应少的是对面。' },
+    '用克体': { char: '滞', tone: '#a8352c', title: '局面受阻——眼下答案恐怕不如你意，问题在外不在你。' },
+  },
+}
+
+/** 是非类问题的"成与不成"补充 */
+const OUTCOME_LINE: Record<Relation, string> = {
+  '用生体': '若成，是外力促成，记得领情；成了之后也别躺平，把局面接住。',
+  '比和': '若成，顺理成章；万一不成，也只是时机平平，不必纠结。',
+  '体克用': '若成，成在你的主动；若不成，多半是推得不到位——再使一把劲看看。',
+  '体生用': '即便成了，也要掂量你付出的代价；若不成，反而是止损。',
+  '用克体': '眼下不成是常态，别较劲；真要强成，也要防后患，缓图更稳。',
 }
 
 const RELATION_STORY: Record<Relation, string> = {
@@ -82,14 +118,22 @@ export function detectCategory(text: string) {
 }
 
 export function buildNarrative(r: DivinationResult): Narrative {
-  const v = VERDICT[r.relation]
+  const intent = detectIntent(`${r.question ?? ''} ${r.reason ?? ''}`)
+  const v = VERDICT[intent][r.relation]
   const c = CONSEQUENCE[r.relation]
   const who = r.name || '你'
   const q = r.question || '心里念的这件事'
   const reasonPart = r.reason ? `事情的原委是这样：${r.reason}。` : ''
+  const advice = (name: string) => HEX_ADVICE[name] ?? ''
 
   const blocks: Block[] = [
-    { title: '整 体 总 断', paras: [`${who}问的是「${q}」。${reasonPart}${OVERALL[r.relation]}`] },
+    {
+      title: '整 体 总 断',
+      paras: [
+        `${who}问的是「${q}」。${reasonPart}${OVERALL[r.relation]}`,
+        `落到卦象上：「${r.ben.name}」${advice(r.ben.name)}；「${r.bian.name}」${advice(r.bian.name)}。`,
+      ],
+    },
     {
       title: `现 状 · 「${r.ben.name}」`,
       paras: [
@@ -99,7 +143,7 @@ export function buildNarrative(r: DivinationResult): Narrative {
     },
     {
       title: `过 程 · 「${r.hu.name}」`,
-      paras: [`往事情深处再看一层，互卦是「${r.hu.name}」，这是过程与隐情的写照。${detail(r.hu.name)}`],
+      paras: [`往事情深处再看一层，互卦是「${r.hu.name}」，这是过程与隐情的写照。${detail(r.hu.name)}${advice(r.hu.name)}。`],
     },
     {
       title: `归 宿 · 「${r.bian.name}」`,
@@ -115,18 +159,24 @@ export function buildNarrative(r: DivinationResult): Narrative {
     })
   }
 
-  blocks.push({ title: '需 要 提 防 的 问 题', bullets: WARNINGS[r.relation] })
+  blocks.push({
+    title: '需 要 留 意 的 小 问 题',
+    bullets: cat ? [...cat.cautions, WARNINGS[r.relation][0]] : WARNINGS[r.relation],
+  })
 
   return {
+    intent,
     verdictChar: v.char,
     verdictTitle: v.title,
     blocks,
     consequenceDo: c.do,
     consequenceDont: c.dont,
+    outcomeLine: intent === 'yesno' ? OUTCOME_LINE[r.relation] : undefined,
     tip: `${TIP[r.relation]}「${r.bian.name}」是这事的归宿——朝着这个方向，把眼下的每一步走稳。`,
   }
 }
 
-export function verdictColor(r: Relation): string {
-  return VERDICT[r].tone
+export function verdictColor(result: DivinationResult): string {
+  const intent = detectIntent(`${result.question ?? ''} ${result.reason ?? ''}`)
+  return VERDICT[intent][result.relation].tone
 }

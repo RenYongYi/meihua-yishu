@@ -173,7 +173,7 @@ export default function Home() {
   }
 
   const narrative = result ? buildNarrative(result) : null
-  const tone = result ? verdictColor(result.relation) : '#a8352c'
+  const tone = result ? verdictColor(result) : '#a8352c'
   const theme = themeForName(result?.name ?? '')
 
   return (
@@ -353,17 +353,25 @@ export default function Home() {
               </section>
             ))}
 
-            {/* 做与不做 */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            {/* 做与不做（抉择类问题）/ 成与不成（是非类问题） */}
+            {narrative.intent === 'choice' && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <section className="rounded-xl border border-[#d8cdb4] bg-[#faf6ec]/90 p-6">
+                  <h4 className="mb-3 text-sm font-semibold tracking-[.25em]" style={{ color: tone }}>若 做</h4>
+                  <p className="text-sm leading-7 text-[#2a2622]">{narrative.consequenceDo}</p>
+                </section>
+                <section className="rounded-xl border border-[#d8cdb4] bg-[#faf6ec]/90 p-6">
+                  <h4 className="mb-3 text-sm font-semibold tracking-[.25em] text-[#7a6a4e]">若 不 做</h4>
+                  <p className="text-sm leading-7 text-[#2a2622]">{narrative.consequenceDont}</p>
+                </section>
+              </div>
+            )}
+            {narrative.intent === 'yesno' && narrative.outcomeLine && (
               <section className="rounded-xl border border-[#d8cdb4] bg-[#faf6ec]/90 p-6">
-                <h4 className="mb-3 text-sm font-semibold tracking-[.25em]" style={{ color: tone }}>若 做</h4>
-                <p className="text-sm leading-7 text-[#2a2622]">{narrative.consequenceDo}</p>
+                <h4 className="mb-3 text-sm font-semibold tracking-[.25em]" style={{ color: tone }}>成 与 不 成</h4>
+                <p className="text-sm leading-7 text-[#2a2622]">{narrative.outcomeLine}</p>
               </section>
-              <section className="rounded-xl border border-[#d8cdb4] bg-[#faf6ec]/90 p-6">
-                <h4 className="mb-3 text-sm font-semibold tracking-[.25em] text-[#7a6a4e]">若 不 做</h4>
-                <p className="text-sm leading-7 text-[#2a2622]">{narrative.consequenceDont}</p>
-              </section>
-            </div>
+            )}
 
             {/* 叮嘱 */}
             <section className="rounded-xl border-l-4 bg-[#faf6ec]/90 p-6" style={{ borderLeftColor: tone }}>
