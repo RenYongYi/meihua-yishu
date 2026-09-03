@@ -89,10 +89,12 @@ const DONG_YAO_TEXT = [
 export function buildNarrative(r: DivinationResult): Narrative {
   const v = VERDICT[r.relation]
   const c = CONSEQUENCE[r.relation]
-  const q = r.question || '你心里问的这件事'
+  const who = r.name ? r.name : '你'
+  const q = r.question || '心里念的这件事'
+  const reasonPart = r.reason ? `事情的原委是这样：${r.reason}。` : ''
 
   const story: string[] = [
-    `你问的是「${q}」。这一卦起出来，是「${r.ben.name}」——${r.ben.meaning}。上卦${r.ben.upper.name}为${r.ben.upper.nature}，主${r.ben.upper.imagery}；下卦${r.ben.lower.name}为${r.ben.lower.nature}，主${r.ben.lower.imagery}。眼前这件事的底色，便是这样一副景象。`,
+    `${who}问的是「${q}」。${reasonPart}这一卦起出来，是「${r.ben.name}」——${r.ben.meaning}。上卦${r.ben.upper.name}为${r.ben.upper.nature}，主${r.ben.upper.imagery}；下卦${r.ben.lower.name}为${r.ben.lower.nature}，主${r.ben.lower.imagery}。眼前这件事的底色，便是这样一副景象。`,
     DONG_YAO_TEXT[r.dongYao - 1],
     `往事情深处再看一层，互卦是「${r.hu.name}」——${r.hu.meaning}。这是过程的写照：事情走到中间，会经历这么一段。`,
     `${YAO_NAMES[r.dongYao - 1]}一动，终成「${r.bian.name}」——${r.bian.meaning}。这是事情的走向与归宿，多半会落在这个局面上。`,

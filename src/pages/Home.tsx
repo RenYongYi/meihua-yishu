@@ -7,6 +7,25 @@ import {
 import { buildNarrative, verdictColor } from '@/lib/interpret'
 import HexagramFigure from '@/components/HexagramFigure'
 
+/* ---------------- 时间解析 ---------------- */
+
+function formatTimeText(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+/** 解析 "2026年9月3日14:06" / "2026-09-03 14:06" / "2026/9/3 14点06" 等写法 */
+function parseTimeText(text: string): Date | null {
+  const m = text.match(/(\d{4})\s*[年\-/.]\s*(\d{1,2})\s*[月\-/.]\s*(\d{1,2})\s*[日号]?\s+?(\d{1,2})\s*[时:：点]\s*(\d{1,2})?/)
+    || text.match(/(\d{4})\s*[年\-/.]\s*(\d{1,2})\s*[月\-/.]\s*(\d{1,2})\s*[日号]?(\d{1,2})\s*[时:：点]\s*(\d{1,2})?/)
+  if (!m) return null
+  const [, y, mo, d, h, mi] = m
+  const date = new Date(+y, +mo - 1, +d, +h, +(mi ?? 0))
+  if (isNaN(date.getTime())) return null
+  if (+mo < 1 || +mo > 12 || +d < 1 || +d > 31 || +h > 23 || +(mi ?? 0) > 59) return null
+  return date
+}
+
 /* ---------------- 小组件 ---------------- */
 
 function WuXingChip({ wx }: { wx: keyof typeof WUXING_COLORS }) {
@@ -54,10 +73,11 @@ function GuaCard({ title, gua, isBen, result }: {
 /* ---------------- 主页面 ---------------- */
 
 export default function Home() {
+  const [name, setName] = useState('')
   const [question, setQuestion] = useState('')
+  const [reason, setReason] = useState('')
   const [method, setMethod] = useState<'time' | 'number'>('time')
-  const [timeMode, setTimeMode] = useState<'now' | 'custom'>('now')
-  const [customTime, setCustomTime] = useState('')
+  const [timeText, setTimeText] = useState(() => formatTimeText(new Date()))
   const [numA, setNumA] = useState('')
   const [numB, setNumB] = useState('')
   const [addHour, setAddHour] = useState(true)
@@ -73,21 +93,19 @@ export default function Home() {
 
   const cast = () => {
     setError('')
+    const nm = name.trim() || undefined
+    const rs = reason.trim() || undefined
     let r: DivinationResult
     if (method === 'time') {
-      let d = new Date()
-      if (timeMode === 'custom') {
-        if (!customTime) { setError('请先选择起卦时间'); return }
-        d = new Date(customTime)
-        if (isNaN(d.getTime())) { setError('时间格式不正确'); return }
-      }
-      r = castByTime(d, question.trim())
+      const d = parseTimeText(timeText.trim())
+      if (!d) { setError('时间格式没看懂，试试这样写：2026年9月3日14:06'); return }
+      r = castByTime(d, question.trim(), nm, rs)
     } else {
       const a = parseInt(numA, 10), b = parseInt(numB, 10)
       if (!Number.isInteger(a) || !Number.isInteger(b) || a <= 0 || b <= 0) {
         setError('请输入两个正整数（心念所至，随口报数即可）'); return
       }
-      r = castByNumbers(a, b, addHour ? currentHourZhiNum() : null, question.trim())
+      r = castByNumbers(a, b, addHour ? currentHourZhiNum() : null, question.trim(), nm, rs)
     }
     setCasting(true)
     setResult(null)
@@ -127,12 +145,43 @@ export default function Home() {
 
         {/* 起卦区 */}
         <section className="rounded-xl border border-[#d8cdb4] bg-[#faf6ec]/90 p-6 shadow-[0_4px_24px_rgba(90,70,40,.10)]">
-          <label className="mb-2 block text-sm tracking-[.2em] text-[#5c5040]">你想問什麼？</label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm tracking-[.2em] text-[#5c5040]">你的稱呼</label>
+              <input
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="怎么称呼你（可不填）"
+                className="w-full rounded-md border border-[#d8cdb4] bg-white/70 px-4 py-2.5 text-sm outline-none transition focus:border-[#a8352c]/60 focus:ring-2 focus:ring-[#a8352c]/15"
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm tracking-[.2em] text-[#5c5040]">起卦時間</label>
+              <input
+                value={timeText}
+                onChange={e => setTimeText(e.target.value)}
+                placeholder="2026年9月3日14:06"
+                className="w-full rounded-md border border-[#d8cdb4] bg-white/70 px-4 py-2.5 text-sm outline-none transition focus:border-[#a8352c]/60 focus:ring-2 focus:ring-[#a8352c]/15"
+              />
+            </div>
+          </div>
+          <p className="mt-1.5 text-right text-xs text-[#9a8a68]">默认是现在，也可以改成别的时间</p>
+
+          <label className="mt-3 mb-2 block text-sm tracking-[.2em] text-[#5c5040]">你想問什麼？</label>
           <textarea
             value={question}
             onChange={e => setQuestion(e.target.value)}
             rows={2}
-            placeholder="比如：明天去面试能成吗？这笔钱该不该借？最近要不要换工作……"
+            placeholder="比如：老师下节课会不会点名？这笔钱该不该借？"
+            className="w-full resize-none rounded-md border border-[#d8cdb4] bg-white/70 px-4 py-2.5 text-sm leading-6 outline-none transition focus:border-[#a8352c]/60 focus:ring-2 focus:ring-[#a8352c]/15"
+          />
+
+          <label className="mt-3 mb-2 block text-sm tracking-[.2em] text-[#5c5040]">事情的原委<span className="ml-2 text-xs text-[#9a8a68]">（來龍去脈，說得越清楚卦越貼切）</span></label>
+          <textarea
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            rows={2}
+            placeholder="比如：我现在想翘课回宿舍玩游戏，又怕老师突击点名……"
             className="w-full resize-none rounded-md border border-[#d8cdb4] bg-white/70 px-4 py-2.5 text-sm leading-6 outline-none transition focus:border-[#a8352c]/60 focus:ring-2 focus:ring-[#a8352c]/15"
           />
 
@@ -153,25 +202,7 @@ export default function Home() {
             ))}
           </div>
 
-          {method === 'time' ? (
-            <div className="mt-4 space-y-3">
-              <label className="flex items-center gap-2 text-sm text-[#5c5040]">
-                <input type="radio" checked={timeMode === 'now'} onChange={() => setTimeMode('now')} className="accent-[#a8352c]" />
-                以此刻起卦（当下时辰）
-              </label>
-              <label className="flex items-center gap-2 text-sm text-[#5c5040]">
-                <input type="radio" checked={timeMode === 'custom'} onChange={() => setTimeMode('custom')} className="accent-[#a8352c]" />
-                指定时间
-                <input
-                  type="datetime-local"
-                  value={customTime}
-                  onChange={e => setCustomTime(e.target.value)}
-                  disabled={timeMode !== 'custom'}
-                  className="rounded border border-[#d8cdb4] bg-white/70 px-2 py-1 text-xs outline-none disabled:opacity-40"
-                />
-              </label>
-            </div>
-          ) : (
+          {method === 'number' && (
             <div className="mt-4 space-y-3">
               <div className="flex items-center gap-3">
                 <input
@@ -225,9 +256,9 @@ export default function Home() {
 
             {/* 直断 */}
             <section className="rounded-xl border-2 bg-[#faf6ec] p-6 text-center shadow-[0_4px_24px_rgba(90,70,40,.12)]" style={{ borderColor: tone }}>
-              {result.question && (
-                <p className="mb-4 text-sm text-[#7a6a4e]">你问：{result.question}</p>
-              )}
+              <p className="mb-4 text-sm text-[#7a6a4e]">
+                {result.name ? `${result.name} 问` : '你问'}{result.question ? `：${result.question}` : ''}
+              </p>
               <div
                 className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border-4 text-5xl font-bold"
                 style={{ borderColor: tone, color: tone, background: `${tone}14` }}

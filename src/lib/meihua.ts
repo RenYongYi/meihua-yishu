@@ -123,6 +123,8 @@ export interface Hexagram {
 
 export interface DivinationResult {
   question: string
+  name?: string              // 求测人姓名
+  reason?: string            // 事情原委
   method: 'time' | 'number'
   basis: string[]              // 起卦依据的每一行说明
   ben: Hexagram
@@ -154,7 +156,7 @@ function hexagramFromLines(lines: number[]): Hexagram {
   return buildHexagram(upper, lower)
 }
 
-function assemble(question: string, method: 'time' | 'number', benLines: number[], dongYao: number, basis: string[], timeText?: string): DivinationResult {
+function assemble(question: string, method: 'time' | 'number', benLines: number[], dongYao: number, basis: string[], timeText?: string, name?: string, reason?: string): DivinationResult {
   const ben = hexagramFromLines(benLines)
 
   // 变卦：动爻阴阳互换
@@ -176,7 +178,7 @@ function assemble(question: string, method: 'time' | 'number', benLines: number[
   const v = VERDICTS[relation]
 
   return {
-    question, method, basis, ben, hu, bian, dongYao,
+    question, name, reason, method, basis, ben, hu, bian, dongYao,
     ti: { gua: tiGua, pos: yongIsUpper ? '下卦' : '上卦' },
     yong: { gua: yongGua, pos: yongIsUpper ? '上卦' : '下卦' },
     relation, level: v.level, score: v.score, verdictText: v.text, advice: v.advice,
@@ -187,7 +189,7 @@ function assemble(question: string, method: 'time' | 'number', benLines: number[
 const ZHI = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥']
 
 /** 时间起卦：以农历年月日时起卦 */
-export function castByTime(date: Date, question: string): DivinationResult {
+export function castByTime(date: Date, question: string, name?: string, reason?: string): DivinationResult {
   const lunar = Solar.fromDate(date).getLunar()
   const yearZhiNum = ZHI.indexOf(lunar.getYearZhi()) + 1          // 年支数
   const month = Math.abs(lunar.getMonth())                        // 农历月
@@ -212,11 +214,11 @@ export function castByTime(date: Date, question: string): DivinationResult {
     `${sumAll} ÷ 8 余 ${sumAll % 8 === 0 ? '0（取 8）' : sumAll % 8} → 下卦 ${lower.name}${lower.symbol}（${lower.nature}）`,
     `${sumAll} ÷ 6 余 ${sumAll % 6 === 0 ? '0（取 6）' : sumAll % 6} → 第 ${['一', '二', '三', '四', '五', '六'][dongYao - 1]} 爻动`,
   ]
-  return assemble(question, 'time', benLines, dongYao, basis, timeText)
+  return assemble(question, 'time', benLines, dongYao, basis, timeText, name, reason)
 }
 
 /** 数字起卦：两数定上下卦，两数之和（加时）定动爻 */
-export function castByNumbers(a: number, b: number, hourZhiNum: number | null, question: string): DivinationResult {
+export function castByNumbers(a: number, b: number, hourZhiNum: number | null, question: string, name?: string, reason?: string): DivinationResult {
   const upper = trigramByNumber(a)
   const lower = trigramByNumber(b)
   const sum = a + b + (hourZhiNum ?? 0)
@@ -230,7 +232,7 @@ export function castByNumbers(a: number, b: number, hourZhiNum: number | null, q
       ? `${a} ＋ ${b} ＋ 时辰数 ${hourZhiNum} ＝ ${sum}，÷ 6 余 ${sum % 6 === 0 ? '0（取 6）' : sum % 6} → 第 ${['一', '二', '三', '四', '五', '六'][dongYao - 1]} 爻动`
       : `${a} ＋ ${b} ＝ ${sum}，÷ 6 余 ${sum % 6 === 0 ? '0（取 6）' : sum % 6} → 第 ${['一', '二', '三', '四', '五', '六'][dongYao - 1]} 爻动`,
   ]
-  return assemble(question, 'number', benLines, dongYao, basis)
+  return assemble(question, 'number', benLines, dongYao, basis, undefined, name, reason)
 }
 
 /** 当前时辰数（子 1 … 亥 12） */
