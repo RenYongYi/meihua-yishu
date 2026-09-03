@@ -4,6 +4,7 @@ import {
   WUXING_COLORS, YAO_NAMES,
   type DivinationResult, type Hexagram,
 } from '@/lib/meihua'
+import { buildNarrative, verdictColor } from '@/lib/interpret'
 import HexagramFigure from '@/components/HexagramFigure'
 
 /* ---------------- 小组件 ---------------- */
@@ -25,12 +26,12 @@ function GuaCard({ title, gua, isBen, result }: {
   const tiPos = isBen ? result.ti.pos : undefined
   const yongPos = isBen ? result.yong.pos : undefined
   return (
-    <div className="flex flex-col items-center rounded-lg border border-[#d8cdb4] bg-[#faf6ec]/80 p-5 shadow-[0_2px_12px_rgba(90,70,40,.08)]">
+    <div className="flex flex-col items-center rounded-lg border border-[#d8cdb4] bg-[#faf6ec]/80 p-5">
       <div className="mb-1 text-xs tracking-[.35em] text-[#8a7a5c]">{title}</div>
       <div className="my-4">
-        <HexagramFigure lines={gua.lines} dongYao={isBen ? result.dongYao : undefined} width={140} />
+        <HexagramFigure lines={gua.lines} dongYao={isBen ? result.dongYao : undefined} width={120} />
       </div>
-      <div className="text-xl font-semibold tracking-[.15em] text-[#2a2622]">{gua.name}</div>
+      <div className="text-lg font-semibold tracking-[.15em] text-[#2a2622]">{gua.name}</div>
       <div className="mt-1 text-center text-xs leading-5 text-[#7a6a4e]">{gua.meaning}</div>
       <div className="mt-3 flex flex-col gap-1 text-xs text-[#5c5040]">
         <span className="flex items-center gap-1.5">
@@ -84,7 +85,7 @@ export default function Home() {
     } else {
       const a = parseInt(numA, 10), b = parseInt(numB, 10)
       if (!Number.isInteger(a) || !Number.isInteger(b) || a <= 0 || b <= 0) {
-        setError('请输入两个正整数（可心念所至随口报数）'); return
+        setError('请输入两个正整数（心念所至，随口报数即可）'); return
       }
       r = castByNumbers(a, b, addHour ? currentHourZhiNum() : null, question.trim())
     }
@@ -97,11 +98,11 @@ export default function Home() {
     }, 900)
   }
 
-  const scoreColor = (s: number) => (s >= 75 ? '#4a7c59' : s >= 40 ? '#b08d57' : '#a8352c')
+  const narrative = result ? buildNarrative(result) : null
+  const tone = result ? verdictColor(result.relation) : '#a8352c'
 
   return (
     <div className="min-h-screen bg-[#f3edde] text-[#2a2622] [font-family:'Noto_Serif_SC','STKaiti','KaiTi','SimSun',serif]">
-      {/* 宣纸纹理 */}
       <div className="pointer-events-none fixed inset-0 opacity-60 [background:radial-gradient(circle_at_20%_10%,rgba(176,141,87,.08),transparent_40%),radial-gradient(circle_at_85%_80%,rgba(168,53,44,.06),transparent_45%)]" />
 
       <div className="relative mx-auto max-w-3xl px-4 pb-20">
@@ -120,18 +121,19 @@ export default function Home() {
             ))}
           </svg>
           <h1 className="text-4xl font-bold tracking-[.4em] text-[#2a2622]">梅花易數</h1>
-          <p className="mt-3 text-sm tracking-[.3em] text-[#8a7a5c]">觀梅占 · 日用常行 隨問隨占</p>
+          <p className="mt-3 text-sm tracking-[.3em] text-[#8a7a5c]">心裡有件事拿不定？起一卦，聽聽怎麼說</p>
           <div className="mt-4 h-px w-40 bg-gradient-to-r from-transparent via-[#b08d57] to-transparent" />
         </header>
 
         {/* 起卦区 */}
         <section className="rounded-xl border border-[#d8cdb4] bg-[#faf6ec]/90 p-6 shadow-[0_4px_24px_rgba(90,70,40,.10)]">
-          <label className="mb-2 block text-sm tracking-[.2em] text-[#5c5040]">所問何事</label>
-          <input
+          <label className="mb-2 block text-sm tracking-[.2em] text-[#5c5040]">你想問什麼？</label>
+          <textarea
             value={question}
             onChange={e => setQuestion(e.target.value)}
-            placeholder="心中默念所问之事，如：今日出行是否顺利……"
-            className="w-full rounded-md border border-[#d8cdb4] bg-white/70 px-4 py-2.5 text-sm outline-none transition focus:border-[#a8352c]/60 focus:ring-2 focus:ring-[#a8352c]/15"
+            rows={2}
+            placeholder="比如：明天去面试能成吗？这笔钱该不该借？最近要不要换工作……"
+            className="w-full resize-none rounded-md border border-[#d8cdb4] bg-white/70 px-4 py-2.5 text-sm leading-6 outline-none transition focus:border-[#a8352c]/60 focus:ring-2 focus:ring-[#a8352c]/15"
           />
 
           <div className="mt-5 mb-2 text-sm tracking-[.2em] text-[#5c5040]">起卦方式</div>
@@ -168,21 +170,18 @@ export default function Home() {
                   className="rounded border border-[#d8cdb4] bg-white/70 px-2 py-1 text-xs outline-none disabled:opacity-40"
                 />
               </label>
-              <p className="text-xs leading-5 text-[#8a7a5c]">
-                法取《梅花易数》年月日时起卦：年支数＋农历月＋农历日，除以八取上卦；再加时辰数，除以八取下卦、除以六取动爻。
-              </p>
             </div>
           ) : (
             <div className="mt-4 space-y-3">
               <div className="flex items-center gap-3">
                 <input
                   value={numA} onChange={e => setNumA(e.target.value.replace(/\D/g, ''))}
-                  placeholder="上数" inputMode="numeric"
+                  placeholder="第一个数" inputMode="numeric"
                   className="w-24 rounded-md border border-[#d8cdb4] bg-white/70 px-3 py-2 text-center text-sm outline-none focus:border-[#a8352c]/60"
                 />
                 <input
                   value={numB} onChange={e => setNumB(e.target.value.replace(/\D/g, ''))}
-                  placeholder="下数" inputMode="numeric"
+                  placeholder="第二个数" inputMode="numeric"
                   className="w-24 rounded-md border border-[#d8cdb4] bg-white/70 px-3 py-2 text-center text-sm outline-none focus:border-[#a8352c]/60"
                 />
                 <button onClick={randomFill} className="rounded-md border border-[#b08d57] px-3 py-2 text-xs text-[#8a6d3b] transition hover:bg-[#b08d57]/10">
@@ -194,7 +193,7 @@ export default function Home() {
                 求动爻时加当前时辰数（传统算法）
               </label>
               <p className="text-xs leading-5 text-[#8a7a5c]">
-                心念所至，随口报出两个数（或依所见之数）：上数除以八取上卦，下数除以八取下卦，两数之和（加时）除以六取动爻。
+                心里默念所问之事，随口报出两个数就行——不用想，脱口而出的最灵。
               </p>
             </div>
           )}
@@ -210,7 +209,6 @@ export default function Home() {
           </button>
         </section>
 
-        {/* 摇卦动画 */}
         {casting && (
           <div className="mt-10 flex justify-center">
             <div className="flex gap-2">
@@ -222,75 +220,93 @@ export default function Home() {
         )}
 
         {/* 结果区 */}
-        {result && !casting && (
+        {result && narrative && !casting && (
           <div ref={resultRef} className="mt-10 space-y-6 [animation:fadeUp_.6s_ease]">
-            {result.question && (
-              <p className="text-center text-sm tracking-[.2em] text-[#5c5040]">
-                所問：<span className="text-[#2a2622]">{result.question}</span>
-              </p>
-            )}
 
-            {/* 起卦依据 */}
-            <section className="rounded-lg border border-[#d8cdb4] bg-[#faf6ec]/80 p-5">
-              <h3 className="mb-3 text-sm tracking-[.3em] text-[#8a7a5c]">起卦依據</h3>
-              {result.timeText && <p className="mb-2 text-sm text-[#2a2622]">{result.timeText}</p>}
-              <ul className="space-y-1 text-xs leading-6 text-[#5c5040]">
-                {result.basis.map((b, i) => <li key={i}>· {b}</li>)}
-              </ul>
+            {/* 直断 */}
+            <section className="rounded-xl border-2 bg-[#faf6ec] p-6 text-center shadow-[0_4px_24px_rgba(90,70,40,.12)]" style={{ borderColor: tone }}>
+              {result.question && (
+                <p className="mb-4 text-sm text-[#7a6a4e]">你问：{result.question}</p>
+              )}
+              <div
+                className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border-4 text-5xl font-bold"
+                style={{ borderColor: tone, color: tone, background: `${tone}14` }}
+              >
+                {narrative.verdictChar}
+              </div>
+              <p className="mt-4 text-lg leading-8 font-semibold" style={{ color: tone }}>
+                {narrative.verdictTitle}
+              </p>
+              <p className="mt-2 text-xs tracking-[.2em] text-[#8a7a5c]">
+                「{result.ben.name}」之「{result.bian.name}」 · 動在{YAO_NAMES[result.dongYao - 1]} · 體用{result.relation}
+              </p>
             </section>
 
-            {/* 三卦 */}
-            <div className="grid gap-4 sm:grid-cols-3">
-              <GuaCard title="本卦 · 現狀" gua={result.ben} isBen result={result} />
-              <GuaCard title="互卦 · 過程" gua={result.hu} result={result} />
-              <GuaCard title="變卦 · 結果" gua={result.bian} result={result} />
+            {/* 娓娓道来 */}
+            <section className="rounded-xl border border-[#d8cdb4] bg-[#faf6ec]/90 p-7">
+              <h3 className="mb-4 text-sm tracking-[.3em] text-[#8a7a5c]">卦 怎 麼 說</h3>
+              <div className="space-y-4">
+                {narrative.story.map((p, i) => (
+                  <p key={i} className="text-[15px] leading-8 text-[#2a2622] first:font-medium" style={{ textIndent: '2em' }}>
+                    {p}
+                  </p>
+                ))}
+              </div>
+            </section>
+
+            {/* 做与不做 */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <section className="rounded-xl border border-[#d8cdb4] bg-[#faf6ec]/90 p-6">
+                <h4 className="mb-3 text-sm font-semibold tracking-[.25em]" style={{ color: tone }}>若 做</h4>
+                <p className="text-sm leading-7 text-[#2a2622]">{narrative.consequenceDo}</p>
+              </section>
+              <section className="rounded-xl border border-[#d8cdb4] bg-[#faf6ec]/90 p-6">
+                <h4 className="mb-3 text-sm font-semibold tracking-[.25em] text-[#7a6a4e]">若 不 做</h4>
+                <p className="text-sm leading-7 text-[#2a2622]">{narrative.consequenceDont}</p>
+              </section>
             </div>
 
-            {/* 体用生克 */}
-            <section className="rounded-lg border border-[#d8cdb4] bg-[#faf6ec]/90 p-6">
-              <h3 className="mb-4 text-sm tracking-[.3em] text-[#8a7a5c]">體用生剋</h3>
-              <div className="flex flex-wrap items-center justify-center gap-4 text-sm">
-                <div className="flex items-center gap-2 rounded-md border border-[#2a2622]/30 px-4 py-2">
-                  <span className="rounded bg-[#2a2622] px-1.5 py-px text-[10px] text-[#f3edde]">體</span>
-                  <span>{result.ti.gua.symbol} {result.ti.gua.name}（{result.ti.gua.nature}）· {result.ti.pos}</span>
-                  <WuXingChip wx={result.ti.gua.wuxing} />
-                </div>
-                <span className="text-xl text-[#a8352c]">{result.relation === '用克体' ? '剋→' : result.relation === '用生体' ? '生→' : result.relation === '体克用' ? '←剋' : result.relation === '体生用' ? '←生' : '比和'}</span>
-                <div className="flex items-center gap-2 rounded-md border border-[#a8352c]/40 px-4 py-2">
-                  <span className="rounded bg-[#a8352c] px-1.5 py-px text-[10px] text-white">用</span>
-                  <span>{result.yong.gua.symbol} {result.yong.gua.name}（{result.yong.gua.nature}）· {result.yong.pos}</span>
-                  <WuXingChip wx={result.yong.gua.wuxing} />
-                </div>
-              </div>
-
-              <div className="mx-auto mt-5 max-w-md">
-                <div className="mb-1 flex items-center justify-between text-xs text-[#8a7a5c]">
-                  <span>體用關係：{result.relation}</span>
-                  <span style={{ color: scoreColor(result.score) }}>{result.level}</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-[#e5dcc4]">
-                  <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{ width: `${result.score}%`, background: scoreColor(result.score) }}
-                  />
-                </div>
-              </div>
+            {/* 叮嘱 */}
+            <section className="rounded-xl border-l-4 bg-[#faf6ec]/90 p-6" style={{ borderLeftColor: tone }}>
+              <h4 className="mb-2 text-sm tracking-[.25em] text-[#8a7a5c]">叮 囑 一 句</h4>
+              <p className="text-sm leading-7 text-[#2a2622]">{narrative.tip}</p>
             </section>
 
-            {/* 断语 */}
-            <section className="rounded-lg border-2 border-[#a8352c]/50 bg-[#faf6ec] p-6 text-center shadow-[0_4px_24px_rgba(168,53,44,.12)]">
-              <div className="mb-2 inline-block rounded-full border border-[#a8352c] px-5 py-1 text-lg tracking-[.4em] text-[#a8352c]">
-                {result.level}
+            {/* 卦象详参（折叠） */}
+            <details className="group rounded-xl border border-[#d8cdb4] bg-[#faf6ec]/70 p-5">
+              <summary className="cursor-pointer text-center text-sm tracking-[.3em] text-[#8a7a5c] transition hover:text-[#5c5040]">
+                卦 象 詳 參（本卦 · 互卦 · 變卦）<span className="inline-block transition group-open:rotate-180">▾</span>
+              </summary>
+              <div className="mt-6 space-y-6">
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <GuaCard title="本卦 · 現狀" gua={result.ben} isBen result={result} />
+                  <GuaCard title="互卦 · 過程" gua={result.hu} result={result} />
+                  <GuaCard title="變卦 · 結果" gua={result.bian} result={result} />
+                </div>
+
+                <div className="rounded-lg border border-[#d8cdb4] bg-white/40 p-4">
+                  <h4 className="mb-2 text-xs tracking-[.3em] text-[#8a7a5c]">起卦依據</h4>
+                  {result.timeText && <p className="mb-1 text-sm text-[#2a2622]">{result.timeText}</p>}
+                  <ul className="space-y-1 text-xs leading-6 text-[#5c5040]">
+                    {result.basis.map((b, i) => <li key={i}>· {b}</li>)}
+                  </ul>
+                  <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-dashed border-[#d8cdb4] pt-3 text-xs text-[#5c5040]">
+                    <span className="flex items-center gap-1.5">
+                      <em className="not-italic rounded bg-[#2a2622] px-1.5 py-px text-[10px] text-[#f3edde]">體</em>
+                      {result.ti.gua.symbol} {result.ti.gua.name}（{result.ti.gua.nature}）<WuXingChip wx={result.ti.gua.wuxing} />
+                    </span>
+                    <span className="text-[#a8352c]">{result.relation}</span>
+                    <span className="flex items-center gap-1.5">
+                      <em className="not-italic rounded bg-[#a8352c] px-1.5 py-px text-[10px] text-white">用</em>
+                      {result.yong.gua.symbol} {result.yong.gua.name}（{result.yong.gua.nature}）<WuXingChip wx={result.yong.gua.wuxing} />
+                    </span>
+                  </div>
+                </div>
               </div>
-              <p className="mt-4 text-sm leading-7 text-[#2a2622]">{result.verdictText}</p>
-              <p className="mt-2 text-sm leading-7 text-[#7a6a4e]">{result.advice}</p>
-              <div className="mt-4 border-t border-dashed border-[#d8cdb4] pt-3 text-xs leading-6 text-[#8a7a5c]">
-                動在{YAO_NAMES[result.dongYao - 1]} · 互卦主事之過程，變卦主事之歸宿 · 「{result.ben.name}」之「{result.bian.name}」
-              </div>
-            </section>
+            </details>
 
             <p className="text-center text-xs leading-6 text-[#9a8a68]">
-              梅花易數源自《易經》，占斷僅供日常參考。卦由心生，事在人為，存善心、行善事，自能趨吉避凶。
+              卦由心生，事在人為。占斷是給你多一個看事情的角度，路終究是自己走出來的。
             </p>
           </div>
         )}
